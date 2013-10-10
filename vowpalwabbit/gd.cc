@@ -557,7 +557,8 @@ float compute_norm(vw& all, example* &ec)
 
   ec->eta_round = 0;
 
-  ec->loss = all.loss->getLoss(all.sd, ec->final_prediction, ld->label) * ld->weight;
+  if (ld->label != FLT_MAX)
+    ec->loss = all.loss->getLoss(all.sd, ec->final_prediction, ld->label) * ld->weight;
 
   if (ld->label != FLT_MAX && !ec->test_only)
     {
@@ -891,9 +892,6 @@ void driver(vw* all, void* data)
      if(all-> early_terminate)
         {
           all->p->done = true;
-          all->final_regressor_name = "";//skip finalize_regressor
-          all->text_regressor_name = "";
-          all->inv_hash_regressor_name = "";
           return;
         }
      else if ((ec = VW::get_example(all->p)) != NULL)//semiblocking operation.
