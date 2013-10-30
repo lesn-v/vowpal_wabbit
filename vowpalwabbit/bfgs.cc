@@ -921,33 +921,11 @@ void save_load(void* d, io_buf& model_file, bool read, bool text)
     }
 }
 
-void drive(vw* all, void* d)
-{
-  bfgs* b = (bfgs*)d;
-
-  example* ec = NULL;
-
-  b->first_hessian_on = true;
-  b->backstep_on = true;
-
-  while ( true )
-    {
-     if(all-> early_terminate)
-        {
-          all->p->done = true;
-          return;
-        }
-      else if ((ec = VW::get_example(all->p)) != NULL)//semiblocking operation.
-	{
-	  learn(b, ec);
-	  return_simple_example(*all, ec);
-	}
-      else if (parser_done(all->p))
-          return;
-      else 
-	;//busywait when we have predicted on all examples but not yet trained on all.
-    }
-}
+  void init_driver(void* data)
+  {
+    bfgs* b = (bfgs*)data;
+    b->backstep_on = true;
+  }
 
 void setup(vw& all, std::vector<std::string>&opts, po::variables_map& vm, po::variables_map& vm_file)
 {
@@ -958,6 +936,7 @@ void setup(vw& all, std::vector<std::string>&opts, po::variables_map& vm, po::va
   b->first_pass = true;
   b->gradient_pass = true;
   b->preconditioner_pass = true;
+  b->backstep_on = false;
   b->final_pass=all.numpasses;  
   b->no_win_counter = 0;
   b->early_stop_thres = 3;
@@ -970,7 +949,9 @@ void setup(vw& all, std::vector<std::string>&opts, po::variables_map& vm, po::va
   }
   
   sl_t sl = {b, save_load};
-  learner t(b,drive,learn,finish,sl);
+  learner t(b,LEARNER::generic_driver,learn,finish,sl);
+  t.set_init_driver(init_driver);
+
   all.l = t;
 
   all.bfgs = true;

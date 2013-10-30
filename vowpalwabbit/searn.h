@@ -212,22 +212,26 @@ namespace ImperativeSearn {
     // functions that you will call
     uint32_t (*predict)(vw&,example**,size_t,v_array<uint32_t>*,v_array<uint32_t>*);
     void     (*declare_loss)(vw&,size_t,float);   // <0 means it was a test example!
-    void     (*snapshot)(vw&,size_t,size_t,void*,size_t);
+    void     (*snapshot)(vw&,size_t,size_t,void*,size_t,bool);
 
     // structure that you must set
     searn_task* task;
 
     // data that you should not look at.  ever.
-    uint32_t A;           // total number of actions, [1..A]; 0 means ldf
+    size_t A;             // total number of actions, [1..A]; 0 means ldf
     char state;           // current state of learning
     size_t learn_t;       // when LEARN, this is the t at which we're varying a
     uint32_t learn_a;     //   and this is the a we're varying it to
+    size_t snapshot_is_equivalent_to_t;   // if we've finished snapshotting and are equiv up to this time step, then we can fast forward from there
+    bool snapshot_could_match;
     v_array<snapshot_item> snapshot_data;
     v_array<uint32_t> train_action;  // which actions did we actually take in the train pass?
     v_array< CSOAA::label > train_labels;  // which labels are valid at any given time
 
-    stringstream* pred_string;
-    stringstream* truth_string;
+    bool should_produce_string;
+    stringstream *pred_string;
+    stringstream *truth_string;
+    bool printed_output_header;
 
     size_t t;              // the current time step
     size_t T;              // the length of the (training) trajectory
@@ -242,20 +246,25 @@ namespace ImperativeSearn {
 
     float  beta;                  // interpolation rate
     bool   allow_current_policy;  // should the current policy be used for training? true for dagger
-    bool   rollout_all_actions;   // false for contextual bandits
+    bool   rollout_oracle; //if true then rollout are performed using oracle instead (optimal approximation discussed in searn's paper). this should be set to true for dagger
+    bool   adaptive_beta; //used to implement dagger through searn. if true, beta = 1-(1-alpha)^n after n updates, and policy is mixed with oracle as \pi' = (1-beta)\pi^* + beta \pi
+    float  alpha; //parameter used to adapt beta for dagger (see above comment), should be in (0,1)
     uint32_t current_policy;      // what policy are we training right now?
+    float gamma;                  // for dagger
     uint32_t increment;
     size_t num_features;
     uint32_t total_number_of_policies;
     bool do_snapshot;
+    bool do_fastforward;
 
-    size_t read_example_this_loop;
     size_t read_example_last_id;
     size_t passes_since_new_policy;
     size_t read_example_last_pass;
     size_t total_examples_generated;
     size_t total_predictions_made;
 
+    bool hit_new_pass;
+    
     size_t passes_per_policy;
 
     v_array<example*> ec_seq;
@@ -265,7 +274,7 @@ namespace ImperativeSearn {
   };
 
   struct searn_task {
-    void (*initialize)(vw&,uint32_t&);
+    void (*initialize)(vw&,size_t&);
     void (*finish)(vw&);
     void (*structured_predict)(vw&, searn&, example**,size_t,stringstream*,stringstream*);
   };

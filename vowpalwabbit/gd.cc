@@ -139,15 +139,15 @@ void learn(void* d, example* ec)
       sync_weights(*all);
       if(all->span_server != "") {
 	if(all->adaptive)
-	  accumulate_weighted_avg(*all, all->span_server, all->reg);
-	else 
-	  accumulate_avg(*all, all->span_server, all->reg, 0);	      
+          accumulate_weighted_avg(*all, all->span_server, all->reg);
+        else 
+        accumulate_avg(*all, all->span_server, all->reg, 0);	      
       }
       
       all->eta *= all->eta_decay_rate;
       if (all->save_per_pass)
 	save_predictor(*all, all->final_regressor_name, all->current_pass);   
-      
+
       all->current_pass++;
 
       if(!all->holdout_set_off)
@@ -160,13 +160,13 @@ void learn(void* d, example* ec)
     }
   
   if (!command_example(all, ec))
-    { 
+    {
       predict(*all,*g,ec);
 
       if (all->holdout_set_off || !ec->test_only)
       {
       if (ec->eta_round != 0.)
-	{ 
+	{
           if(all->power_t == 0.5) { 
             if (all->adaptive) {
               if (all->normalized_updates){ 
@@ -599,7 +599,7 @@ float compute_norm(vw& all, example* &ec)
 
           eta_t = all.eta * norm * ld->weight;
           if(!all.adaptive) eta_t *= powf(t,-all.power_t);
-
+          
           float update = 0.f;
           if( all.invariant_updates )
             update = all.loss->getUpdate(ec->final_prediction, ld->label, eta_t, norm);
@@ -883,29 +883,6 @@ void save_load(void* data, io_buf& model_file, bool read, bool text)
     }
 }
 
-void driver(vw* all, void* data)
-{
-  example* ec = NULL;
-  
-  while ( true )
-    {
-     if(all-> early_terminate)
-        {
-          all->p->done = true;
-          return;
-        }
-     else if ((ec = VW::get_example(all->p)) != NULL)//semiblocking operation.
-	{
-	  learn(data, ec);
-	  return_simple_example(*all, ec);
-	}
-      else if (parser_done(all->p))
-	return;
-      else 
-	;//busywait when we have predicted on all examples but not yet trained on all.
-    }
-}
-
 learner setup(vw& all, po::variables_map& vm)
 {
   gd* g = (gd*)calloc(1, sizeof(gd));
@@ -929,8 +906,7 @@ learner setup(vw& all, po::variables_map& vm)
   }
     
   sl_t sl = {g,save_load};
-  learner ret(g,driver,learn,finish,sl);
-
+  learner ret(g,LEARNER::generic_driver,learn,finish,sl);
   return ret;
 }
 }

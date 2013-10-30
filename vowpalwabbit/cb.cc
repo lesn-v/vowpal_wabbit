@@ -24,7 +24,6 @@ namespace CB
     size_t nb_ex_regressors;
     float last_pred_reg;
     float last_correct_cost;
-    bool first_print_call;
 
     float min_cost;
     float max_cost;
@@ -528,14 +527,13 @@ namespace CB
       }
   }
 
+  void init_driver(void*)
+  {
+    fprintf(stderr, "*estimate* *estimate*                                                avglossreg last pred  last correct\n");
+  }
+
   void print_update(vw& all, cb& c, bool is_test, example *ec)
   {
-    if( c.first_print_call )
-    {
-      fprintf(stderr, "*estimate* *estimate*                                                avglossreg last pred  last correct\n");
-      c.first_print_call = false;
-    }
-
     if (all.sd->weighted_examples > all.sd->dump_interval && !all.quiet && !all.bfgs)
       {
         char label_buf[32];
@@ -658,34 +656,18 @@ namespace CB
     free(c);
   }
 
-  void drive(vw* all, void* d)
+  void finish_example(vw& all, void* data, example* ec)
   {
-    cb* c = (cb*)d;
-    example* ec = NULL;
-    while ( true )
-    {
-      if(all-> early_terminate)
-        {
-          all->p->done = true;
-          return;
-        } 
-      if ((ec = VW::get_example(all->p)) != NULL)//semiblocking operation.
-      {
-        learn(d, ec);
-	if (!command_example(&all, ec))
-	  output_example(*all, *c, ec);
-	VW::finish_example(*all, ec);
-      }
-      else if (parser_done(all->p))
-	return;
-    }
+    cb* c = (cb*)data;
+    if (!command_example(&all, ec))
+      output_example(all, *c, ec);
+    VW::finish_example(all, ec);
   }
 
   learner setup(vw& all, std::vector<std::string>&opts, po::variables_map& vm, po::variables_map& vm_file)
   {
     cb* c = (cb*)calloc(1, sizeof(cb));
     c->all = &all;
-    c->first_print_call = true;
     c->min_cost = 0.;
     c->max_cost = 1.;
     po::options_description desc("CB options");
@@ -766,8 +748,11 @@ namespace CB
 
     all.sd->k = nb_actions;
 
-    learner l(c, drive, learn, finish, all.l.sl);
+    learner l(c, LEARNER::generic_driver, learn, finish, all.l.sl);
     c->base = all.l;
+    l.set_finish_example(finish_example); 
+    l.set_init_driver(init_driver);
+
     return l;
   }
 }
